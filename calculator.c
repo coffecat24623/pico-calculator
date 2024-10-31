@@ -20,24 +20,27 @@ int main() {
 
 	while (1) {
 		for (int i = 0; i < 16; i++) {
+			// Keypad 1 is 3, 6 so this shouldn't trigger anything right
+			gpio_set_dir(i, GPIO_OUT);
+			gpio_put(i, 0);
+
 			for (int j = i + 1; j < 17; j++) {
 				//read pin always registers on multiple i's for some reason, assuming because switching i from OUT to IN takes longer then IN to OUT
 				gpio_set_dir(j, GPIO_IN);
-				gpio_set_dir(i, GPIO_OUT);
-
-				
-				gpio_put(i, 0);
 
 				bool v = gpio_get(j);
-				gpio_set_dir(i, GPIO_IN);
 				if (!v) {
-					//avoid flooding screen smfh
-					sleep_ms(50);
-					printf("Hit! at %d, %d\n", i,  j);
+					printf("Hit! at %d, %d, %d\n", i,  j, gpio_is_dir_out(i));
+
+					gpio_set_dir(i, GPIO_IN);
+					sleep_ms(100);
+					continue;
 				}
 
 			}
+			gpio_set_dir(i, GPIO_IN);
 		}
+		sleep_ms(10);
 	}
 }
 	
