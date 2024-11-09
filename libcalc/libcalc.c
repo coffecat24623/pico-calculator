@@ -1,14 +1,19 @@
 #include <stdint.h>
+#include <assert.h>
 #include "libcalc.h"
+
 
 int unpack_decimal128(decimal128 * src, dec128* dst) {
 	uint32_t combined;
 	//11 in trailing and one in our combined field
 	uint16_t declets[12];
+
 	uint8_t a = src->data[0];
 	uint8_t b = src->data[1];
 	uint8_t c = src->data[2];
-	combined = ((a & 0x7f) << 16) | (b << 8) | c;
+
+	uint8_t metadata = 0;
+	uint8_t flags = 0;
 
 	dst->sign = (a >> 7);
 
@@ -32,6 +37,7 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 			declet = (declet << remaining) | p1;
 
 			// push this onto our declet stack
+			assert(declets_parsed < 12);
 			declets[declets_parsed] = declet;
 			declets_parsed += 1;
 
@@ -43,6 +49,7 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 			stored += 8;
 			if (stored == 10) {
 				// push this onto our declet stack
+				assert(declets_parsed < 12);
 				declets[declets_parsed] = declet;
 				declets_parsed += 1;
 
@@ -51,6 +58,20 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 			}
 		}
 	}
+	// Parse trailing exponents and leading digit
+	// sFFFFxxx
+	metadata = ((a >> 3) & 0b1111);
+
+	// NaN / inf
+	if (metadata == 0b1111) {
+		uint8_t naninf = (a >> 2) & 1;
+		uint8_t signal = (a >> 1) & 1;
+
+		flags = flags | (naninf << NAN_SHIFT);
+		flags = flags | (!naninf << INFINITY_SHIFT);
+		flags = flags | (signal << NAN_SIGNAL_SHIFT);
+	}
+
 
 	return 0;
 }
