@@ -195,9 +195,11 @@ int decode_dpd(uint16_t dpd, uint8_t* px, uint8_t* py, uint8_t* pz) {
 						x = x | 0b1000;
 						y = y | 0b1000;
 						z = z | 0b1000;
+						break;
 					default:
 						return -2;
 				}
+				break;
 			default:
 				return -1;
 			
@@ -221,7 +223,7 @@ uint16_t encode_dpd(uint8_t x, uint8_t y, uint8_t z) {
 
 	uint8_t type = ((x & 0b1000) >> 1) |
 				   ((y & 0b1000) >> 2) |
-				   ((y & 0b1000) >> 3);
+				   ((z & 0b1000) >> 3);
 	type = type & 7;
 	switch (type) {
 		case (0b000):
@@ -243,6 +245,7 @@ uint16_t encode_dpd(uint8_t x, uint8_t y, uint8_t z) {
 			dpd |= ((z & 0b110) << 7) |
 				   ((y & 7) << 4) |
 				   0b1100;
+			return dpd;
 		case (0b110):
 			dpd |= ((z & 0b110) << 7) |
 				   0b0001110;
