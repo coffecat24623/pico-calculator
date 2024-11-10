@@ -17,7 +17,7 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 
 	uint8_t metadata = 0;
 	uint8_t flags = 0;
-	uint8_t digit_trailing;
+	uint8_t digit_leading;
 
 	// digits for declet decoding process temporary storage
 	uint8_t digit_triplets[3];
@@ -111,14 +111,14 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 
 		// I don't think specs describes if these are neeed so just get rid of
 		exponent_leading = 0;
-		digit_trailing = 0;
+		digit_leading = 0;
 	} else if ((metadata & 0b1100) == 0b1100) {
 		//s11xxcEE
-		digit_trailing = 8 + ((a >> 2) & 1);
+		digit_leading = 8 + ((a >> 2) & 1);
 		exponent_leading = ((a >> 3) & 0b11);
 	} else {
 		//sxxcccEE
-		digit_trailing = ((a >> 2) & 0b111);
+		digit_leading = ((a >> 2) & 0b111);
 		exponent_leading = ((a >> 5) & 0b11);
 	}
 
@@ -129,7 +129,7 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 	dst->flags = flags;
 
 	//start storing to BCD
-	dst->digits[0] |= (digit_trailing << 4);
+	dst->digits[0] |= (digit_leading << 4);
 	digits_stored += 1;
 
 	for (int i = 0; i < DEC128_TDECLETS; i++) {
@@ -157,8 +157,6 @@ int pack_decimal128(dec128* src, decimal128 * dst) {
 	uint8_t bit_index;
 	uint8_t digit_leading = (src->digits[0] >> 4);
 	uint8_t temp_digits[3];
-
-	uint8_t a, b, c;
 
 	uint16_t exponent = src->exponent + DEC128_BIAS;
 	assert((int16_t) exponent >= 0);
@@ -210,10 +208,10 @@ int pack_decimal128(dec128* src, decimal128 * dst) {
 		}
 	}
 
-	dst->data[0] = ((src->sign << 7) | (combined_field >> 9)) & 0xFF;
-	dst->data[1] = (combined_field >> 1) & 0xFF;
-	dst->data[2] = (combined_field << 7) & 0xFF;
-	bit_index = 17;
+	dst->data[0] = ((src->sign << 7) | (combined_field >> 10)) & 0xFF;
+	dst->data[1] = (combined_field >> 2) & 0xFF;
+	dst->data[2] = (combined_field << 6) & 0xFF;
+	bit_index = 18;
 
 	for (int i = 0; i < DEC128_TDECLETS; i++) {
 		uint16_t cur = declets[i];
