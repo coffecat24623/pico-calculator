@@ -8,6 +8,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 pico_sdk_init()
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/../libcalc libcalc_build)
+
 add_executable(calculator 
 	calculator.c
 )
@@ -15,5 +17,5 @@ pico_enable_stdio_usb(calculator 1)
 pico_enable_stdio_uart(calculator 1)
 pico_add_extra_outputs(calculator)
 
-target_link_libraries(calculator pico_stdlib hardware_pio)
+target_link_libraries(calculator pico_stdlib hardware_pio libcalc)
 

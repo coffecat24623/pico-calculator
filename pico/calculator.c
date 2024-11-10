@@ -3,6 +3,7 @@
 #include "hardware/gpio.h"
 #include "hardware/pio.h"
 #include "pico/binary_info.h"
+#include "libcalc.h"
 
 const uint LED_PIN = 25;
 
@@ -10,6 +11,7 @@ int main() {
 	bi_decl(bi_program_description("This is a super cool calculator"));
 
 	stdio_init_all();
+	decimal128 ignore;
 
 	gpio_init_mask(0x0001ffff);
 	for (int i = 0; i < 17; i++) {
