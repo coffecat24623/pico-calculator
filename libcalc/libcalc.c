@@ -1,59 +1,92 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <assert.h>
 #include "libcalc.h"
 
 
 int unpack_decimal128(decimal128 * src, dec128* dst) {
 	uint32_t combined;
-	//11 in trailing and one in our combined field
-	uint16_t declets[12];
 
+	// 11 in trailing and one in our combined field
+	uint16_t declets[DEC128_TDECLETS];
+
+	// these cover the combined field
 	uint8_t a = src->data[0];
 	uint8_t b = src->data[1];
 	uint8_t c = src->data[2];
 
 	uint8_t metadata = 0;
 	uint8_t flags = 0;
+	uint8_t digit_trailing;
 
-	dst->sign = (a >> 7);
+	//s55555EE|EEEEEEEE|EE......|
 
 	// trailing significand is made out of 11 declets = 110 bits
 	// each i look at two bytes required
 	
 	// loop has to consume the first none trailing bits, this value of stored causes it to do that
-	// and record a degenerate declet as the first one, but we replace this with the implied digit
-	uint8_t stored = 10 - ((DEC128_W5 + 1) >> 3);
-	uint16_t declet = 0;
+	// and record a degenerate declet so a bool will turn it off
+	
+	// TODO: add logic for detecting if this field and sign forms is actually a multiple of eight
+	bool ignore_declet = true;
+	uint8_t declets_stored = 10 - ((DEC128_W5 + 1) % 8);
 	uint8_t declets_parsed = 0;
+	uint16_t declet = 0;
+	uint16_t exponent_leading;
+	uint16_t exponent_trailing;
+	uint16_t exponent;
+
+	// For the goofy BCD
+	uint8_t digits_stored = 0;
+	exponent_trailing = ((a & 0b11) << 10) | (b << 8) | (c >> 6);
+
+	// initialize memory
+	for (int i = 0; i < DEC128_BCDBYTES; i++) {
+		dst->digits[i] = 0;
+	}
+	dst->exponent=0;
+	dst->flags=0;
+	dst->sign = (a >> 7);
 
 	// parse trailing declets
 	for (int i = 2; i < 16; i++) {
 		uint8_t cur = src->data[i];
-		uint8_t remaining = 10 - stored;
+		uint8_t remaining = 10 - declets_stored;
 		if (remaining < 8) {
 			uint8_t p1, p2;
-			p1 = cur >> (8 - remaining);
-			p2 = cur & (8 - remaining);
+			uint8_t p2_length = 8 - remaining;
+
+			p1 = cur >> (p2_length);
+			p2 = cur & ((1 << p2_length) - 1);
+
 			declet = (declet << remaining) | p1;
 
-			// push this onto our declet stack
-			assert(declets_parsed < 12);
-			declets[declets_parsed] = declet;
-			declets_parsed += 1;
+			if (ignore_declet) {
+				ignore_declet = false;
+			} else {
+				// push this onto our declet stack if it is not the degenerate declet
+				assert(declets_parsed < DEC128_TDECLETS);
+				declets[declets_parsed] = declet;
+				declets_parsed += 1;
+			}
 
 			// reset
 			declet = p2;
-			stored = (8 - remaining);
+			declets_stored = (p2_length);
 		} else {
 			declet = (declet << 8) | cur;
-			stored += 8;
-			if (stored == 10) {
+			declets_stored += 8;
+			if (declets_stored == 10) {
 				// push this onto our declet stack
-				assert(declets_parsed < 12);
-				declets[declets_parsed] = declet;
-				declets_parsed += 1;
+				if (ignore_declet) {
+					ignore_declet = false;
+				} else {
+					assert(declets_parsed < DEC128_TDECLETS);
+					declets[declets_parsed] = declet;
+					declets_parsed += 1;
+				}
 
-				stored = 0;
+				declets_stored = 0;
 				declet = 0;
 			}
 		}
@@ -70,9 +103,84 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 		flags = flags | (naninf << NAN_SHIFT);
 		flags = flags | (!naninf << INFINITY_SHIFT);
 		flags = flags | (signal << NAN_SIGNAL_SHIFT);
+
+		// I don't think specs describes if these are neeed so just get rid of
+		exponent_leading = 0;
+		digit_trailing = 0;
+	} else if ((metadata & 0b1100) == 0b1100) {
+		//s11xxcEE
+		digit_trailing = 8 + ((a >> 2) & 1);
+		exponent_leading = ((a >> 3) & 0b11);
+	} else {
+		//sxxcccEE
+		digit_trailing = ((a >> 2) & 0b111);
+		exponent_leading = ((a >> 5) & 0b11);
 	}
-
-
+	exponent = (exponent_leading << 12) | exponent_trailing;
 
 	return 0;
 }
+
+// https://en.wikipedia.org/wiki/Densely_packed_decimal
+int decode_dpd(uint16_t dpd, uint8_t* px, uint8_t* py, uint8_t* pz) {
+	uint8_t x = (dpd >> 7) & 1;
+	uint8_t y = (dpd >> 4) & 1;
+	uint8_t z = (dpd >> 0) & 1;
+	if (dpd & 0b1000) {
+		switch ((dpd & 0b1110) >> 1) {
+			case 0b100:
+				x = (dpd & (0b111 << 7)) >> 7;
+				y = (dpd & (0b111 << 4)) >> 4;
+				z = z | 0b1000;
+				break;
+			case 0b101:
+				x = (dpd & 0b1110000000) >> 7;
+				y = y | 0b1000;
+				z = z | ((dpd & (0b11 << 5)) >> 4);
+				break;
+			case 0b110:
+				x = x | 0b1000;
+				y = (dpd & (0b111 << 4)) >> 4;
+				z = z | ((dpd & (0b11 << 8)) >> 7);
+				break;
+			case 0b111:
+				switch ((dpd & (0b11 << 5)) >> 5) {
+					case 0b00:
+						x = x | 0b1000;
+						y = y | 0b1000;
+						z = z | ((dpd & (0b11 << 8)) >> 7);
+						break;
+					case 0b01:
+						x = x | 0b1000;
+						y = y | ((dpd & (0b11 << 8)) >> 7);
+						z = z | 0b1000;
+						break;
+					case 0b10:
+						x = (dpd & (0b111 << 7)) >> 7;
+						y = 0b1000 | y;
+						z = 0b1000 | z;
+						break;
+					case 0b11:
+						x = x | 0b1000;
+						y = y | 0b1000;
+						z = z | 0b1000;
+					default:
+						return -2;
+				}
+			default:
+				return -1;
+			
+		}
+	} else {
+		x = (dpd & (0b111 << 7)) >> 7;
+		y = (dpd & (0b111 << 4)) >> 4;
+		z = (dpd & 0b111);
+	}
+	*px = x;
+	*py = y;
+	*pz = z;
+
+	return 0;
+}
+
+
