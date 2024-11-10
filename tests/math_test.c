@@ -36,7 +36,7 @@ void describe_decimal128(decimal128* src) {
 	a = src->data[0];
 	b = src->data[1];
 	c = src->data[2];
-	printf("sign: %d\n", a >> 7);
+	printf("sign: %d, ", a >> 7);
 	uint32_t combined;
 	combined = (a & 0b1111111) << 10;
 	combined = combined | (b << 2);

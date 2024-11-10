@@ -3,6 +3,10 @@
 #include <assert.h>
 #include "decimal.h"
 
+//TODO:
+// unpack and packing functions can return integers to signal errors, there are possibilities
+// for errors especially when packing so we should implement these. (E.g exponents out of range are a BIG issue)
+
 
 int unpack_decimal128(decimal128 * src, dec128* dst) {
 	uint32_t combined;
@@ -51,7 +55,7 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 	dst->sign = (a >> 7);
 
 	// get trailing exponent
-	exponent_trailing = ((a & 0b11) << 10) | (b << 8) | (c >> 6);
+	exponent_trailing = ((a & 0b11) << 10) | (b << 2) | (c >> 6);
 
 	// parse trailing declets
 	for (int i = 2; i < 16; i++) {
@@ -123,7 +127,7 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 	}
 
 	// This is the biased exponent
-	exponent = (exponent_leading << 12) | exponent_trailing;
+	exponent = (exponent_leading << 12) | (exponent_trailing);
 	dst->exponent = ((int16_t) exponent) - DEC128_BIAS;
 
 	dst->flags = flags;
@@ -199,12 +203,11 @@ int pack_decimal128(dec128* src, decimal128 * dst) {
 	} else if (src->flags & INFINITY_MASK) {
 		combined_field = 0b11110 << 12;
 	} else {
-		// TODO: Do we really need to split the exponent into trailing and leading parts?
 		// Can use three implied bits
 		if (digit_leading & 0b1000) {
-			combined_field = (0b11 << 15) | (exponent_leading << 13) | (exponent_trailing) << 1 | (digit_leading & 1);
+			combined_field = (0b11 << 15) | (exponent_leading << 13) | ((digit_leading & 1) << 12) | (exponent_trailing);
 		} else {
-			combined_field = (exponent_leading << 15) | (exponent_trailing << 3) | (digit_leading & 7);
+			combined_field = (exponent_leading << 15) | ((digit_leading & 7) << 12) | (exponent_trailing);
 		}
 	}
 
