@@ -29,5 +29,6 @@ int unpack_decimal128(decimal128* src, dec128* dst);
 int pack_decimal128(dec128* src, decimal128* dst);
 
 int decode_dpd(uint16_t dpd, uint8_t* x, uint8_t* y, uint8_t* z);
+uint16_t encode_dpd(uint8_t x, uint8_t y, uint8_t z);
 
 // lookup table utils

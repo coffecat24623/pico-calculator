@@ -214,4 +214,53 @@ int decode_dpd(uint16_t dpd, uint8_t* px, uint8_t* py, uint8_t* pz) {
 	return 0;
 }
 
+uint16_t encode_dpd(uint8_t x, uint8_t y, uint8_t z) {
+	uint16_t dpd = ((x & 1) << 7) |
+				   ((y & 1) << 4) |
+				   (z & 1);
+
+	uint8_t type = ((x & 0b1000) >> 1) |
+				   ((y & 0b1000) >> 2) |
+				   ((y & 0b1000) >> 3);
+	type = type & 7;
+	switch (type) {
+		case (0b000):
+			dpd |= ((x & 7) << 7) |
+				  ((y & 7) << 4) |
+				  ((z & 7));
+			return dpd;
+		case (0b001):
+			dpd |= ((x & 7) << 7) |
+				   ((y & 7) << 4) |
+				   0b1000;
+			return dpd;
+		case (0b010):
+			dpd |= ((x & 7) << 7) |
+				   ((z & 0b110) << 4) |
+				   0b1010;
+			return dpd;
+		case (0b100):
+			dpd |= ((z & 0b110) << 7) |
+				   ((y & 7) << 4) |
+				   0b1100;
+		case (0b110):
+			dpd |= ((z & 0b110) << 7) |
+				   0b0001110;
+			return dpd;
+		case (0b101):
+			dpd |= ((y & 0b110) << 7) |
+				   0b0101110;
+			return dpd;
+		case (0b011):
+			dpd |= ((x & 0b110) << 7) |
+				   0b1001110;
+			return dpd;
+
+		// serves case where all digits > 8
+		default:
+			return dpd | 0b1101110;
+	}
+}
+
+
 
