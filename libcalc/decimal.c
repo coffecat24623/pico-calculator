@@ -152,6 +152,96 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 	return 0;
 }
 
+int pack_decimal128(dec128* src, decimal128 * dst) {
+	uint16_t declets[DEC128_TDECLETS];
+	uint8_t bit_index;
+	uint8_t digit_leading = (src->digits[0] >> 4);
+	uint8_t temp_digits[3];
+
+	uint8_t a, b, c;
+
+	uint16_t exponent = src->exponent + DEC128_BIAS;
+	assert((int16_t) exponent >= 0);
+
+	uint16_t exponent_leading = (exponent >> 12) & 0b11;
+	uint16_t exponent_trailing = exponent & ((1 << 12) - 1);
+
+	assert(exponent_leading != 0b11);
+
+	// doesn't start at zero because we use the leading digit
+	uint8_t bcd_index = 1;
+
+	uint32_t combined_field;
+
+
+	for (int i = 0; i < DEC128_TDECLETS; i++) {
+		for (int j = 0; j < 3; j++) {
+			uint8_t num;
+			uint8_t index = bcd_index >> 1;
+			if (bcd_index % 2) {
+				num = src->digits[index] & 0b1111;
+			} else {
+				num = src->digits[index] >> 4;
+			}
+			bcd_index += 1;
+			temp_digits[j] = num;
+		}
+		uint16_t dpd = encode_dpd(temp_digits[0],
+								  temp_digits[1],
+								  temp_digits[2]);
+		declets[i] = dpd;
+	}
+
+	// take care of the combined field
+	
+	// process NAN/Infinity
+	if (src->flags & NAN_MASK) {
+		// We lose the exponent
+		combined_field = (0b11111 << 12) | (((src->flags >> NAN_SIGNAL_SHIFT) & 1) << 11);
+	} else if (src->flags & INFINITY_MASK) {
+		combined_field = 0b11110 << 12;
+	} else {
+		// TODO: Do we really need to split the exponent into trailing and leading parts?
+		// Can use three implied bits
+		if (digit_leading & 0b1000) {
+			combined_field = (0b11 << 15) | (exponent_leading << 13) | (exponent_trailing) << 1 | (digit_leading & 1);
+		} else {
+			combined_field = (exponent_leading << 15) | (exponent_trailing << 3) | (digit_leading & 7);
+		}
+	}
+
+	dst->data[0] = ((src->sign << 7) | (combined_field >> 9)) & 0xFF;
+	dst->data[1] = (combined_field >> 1) & 0xFF;
+	dst->data[2] = (combined_field << 7) & 0xFF;
+	bit_index = 17;
+
+	for (int i = 0; i < DEC128_TDECLETS; i++) {
+		uint16_t cur = declets[i];
+		int declet_bits_remaining = 10;
+		while (declet_bits_remaining > 0) {
+			// Bits available in current byte
+			int bits_available = (8 - (bit_index % 8));
+			int bits_used = (bits_available < declet_bits_remaining) ? bits_available : declet_bits_remaining;
+
+			uint8_t declet_portion = (cur >> (declet_bits_remaining - bits_used)) & ((1 << bits_used) - 1);
+			// shift it into place
+			uint8_t target_mask = declet_portion << (bits_available - bits_used);
+			uint8_t index = bit_index >> 3;
+
+			assert(index < 16);
+			dst->data[index] |= target_mask;
+
+			declet_bits_remaining -= bits_used;
+			bit_index += bits_used;
+
+		}
+	}
+
+
+	return 0;
+}
+
+
 // https://en.wikipedia.org/wiki/Densely_packed_decimal
 int decode_dpd(uint16_t dpd, uint8_t* px, uint8_t* py, uint8_t* pz) {
 	uint8_t x = (dpd >> 7) & 1;

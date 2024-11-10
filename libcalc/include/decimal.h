@@ -15,6 +15,10 @@
 #define NAN_SIGNAL_SHIFT	1
 #define INFINITY_SHIFT		2
 
+#define NAN_MASK			1
+#define NAN_SIGNAL_MASK		2
+#define INFINITY_MASK		4
+
 // Store big endian
 typedef struct decimal128 {
 	uint8_t data[16];
