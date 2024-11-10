@@ -19,6 +19,9 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 	uint8_t flags = 0;
 	uint8_t digit_trailing;
 
+	// digits for declet decoding process temporary storage
+	uint8_t digit_triplets[3];
+
 	//s55555EE|EEEEEEEE|EE......|
 
 	// trailing significand is made out of 11 declets = 110 bits
@@ -38,7 +41,6 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 
 	// For the goofy BCD
 	uint8_t digits_stored = 0;
-	exponent_trailing = ((a & 0b11) << 10) | (b << 8) | (c >> 6);
 
 	// initialize memory
 	for (int i = 0; i < DEC128_BCDBYTES; i++) {
@@ -47,6 +49,9 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 	dst->exponent=0;
 	dst->flags=0;
 	dst->sign = (a >> 7);
+
+	// get trailing exponent
+	exponent_trailing = ((a & 0b11) << 10) | (b << 8) | (c >> 6);
 
 	// parse trailing declets
 	for (int i = 2; i < 16; i++) {
@@ -116,7 +121,33 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 		digit_trailing = ((a >> 2) & 0b111);
 		exponent_leading = ((a >> 5) & 0b11);
 	}
+
+	// This is the biased exponent
 	exponent = (exponent_leading << 12) | exponent_trailing;
+	dst->exponent = ((int16_t) exponent) - DEC128_BIAS;
+
+	dst->flags = flags;
+
+	//start storing to BCD
+	dst->digits[0] |= (digit_trailing << 4);
+	digits_stored += 1;
+
+	for (int i = 0; i < DEC128_TDECLETS; i++) {
+		decode_dpd(declets[i], &digit_triplets[0], 
+							   &digit_triplets[1],
+							   &digit_triplets[2]);
+		for (int j = 0; j < 3; j++) {
+
+			uint8_t index = digits_stored >> 1;
+			assert(index < DEC128_BCDBYTES);
+			if (digits_stored % 2) {
+				dst->digits[index] |= digit_triplets[j];
+			} else {
+				dst->digits[index] |= (digit_triplets[j] << 4);
+			}
+			digits_stored += 1;
+		}
+	}
 
 	return 0;
 }
