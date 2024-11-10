@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include "libcalc.h"
 
-void describe_dec128(dec128 * src) {
+void describe_dec128(const dec128 * src) {
 	printf("Value: ");
 	if (src->sign) {
 		putchar('-');
@@ -29,7 +30,8 @@ void u32tb(uint32_t num, char* arr) {
 	}
 }
 
-void describe_decimal128(decimal128* src) {
+
+void describe_decimal128(const decimal128* src) {
 	uint8_t a, b, c;
 	char buf[33] = {0};
 	buf[32] = 0;
@@ -54,6 +56,24 @@ void u16tb(uint16_t num, char* arr) {
 			arr[j] = '0';
 		}
 	}
+}
+
+int test_packing(const dec128* original) {
+	decimal128 packed;
+	dec128 new;
+
+	pack_decimal128(original, &packed);
+	unpack_decimal128(&packed, &new);
+
+
+	if (cmp_dec128(original, &new)) {
+		printf("[!] packing a number and unpacking gave wrong numger\n");
+		describe_dec128(original);
+		describe_decimal128(&packed);
+		describe_dec128(&new);
+		return -1;
+	}
+	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -93,24 +113,8 @@ int main(int argc, char** argv) {
 		.flags = 0,
 		.digits = {0x31, 0x41, 0x59, 0x26, 0x53, 0x58, 0x97, 0x93, 0x23, 0x84, 0x62, 0x64, 0x33, 0x83, 0x27, 0x95, 0x02}
 	};
-	describe_dec128(&pi);
-	dec128 big = {
-		.sign = 0,
-		.exponent = 0,
-		.flags = 0,
-		.digits = {0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99}
-	};
-	describe_dec128(&big);
 
-	decimal128 bigpi;
-	dec128 newpi;
-
-	pack_decimal128(&pi, &bigpi);
-	unpack_decimal128(&bigpi, &newpi);
-
-	describe_decimal128(&bigpi);
-	describe_dec128(&newpi);
-
+	test_packing(&pi);
 
 	return 0;
 }

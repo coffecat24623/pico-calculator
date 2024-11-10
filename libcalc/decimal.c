@@ -8,7 +8,7 @@
 // for errors especially when packing so we should implement these. (E.g exponents out of range are a BIG issue)
 
 
-int unpack_decimal128(decimal128 * src, dec128* dst) {
+int unpack_decimal128(const decimal128 * src, dec128* dst) {
 	uint32_t combined;
 
 	// 11 in trailing and one in our combined field
@@ -156,7 +156,7 @@ int unpack_decimal128(decimal128 * src, dec128* dst) {
 	return 0;
 }
 
-int pack_decimal128(dec128* src, decimal128 * dst) {
+int pack_decimal128(const dec128* src, decimal128 * dst) {
 	uint16_t declets[DEC128_TDECLETS];
 	uint8_t bit_index;
 	uint8_t digit_leading = (src->digits[0] >> 4);
@@ -358,3 +358,20 @@ uint16_t encode_dpd(uint8_t x, uint8_t y, uint8_t z) {
 
 
 
+int cmp_dec128(const dec128* a, const dec128* b) {
+	if ((a->sign) != b-> sign) {
+		return -1;
+	}
+	if ((a->exponent) != b->exponent) {
+		return -1;
+	}
+	if ((a->flags) != (b->flags)) {
+		return -1;
+	}
+	for (int i = 0; i << DEC128_BCDBYTES; i++) {
+		if ((a->digits[i]) != (b->digits[i])) {
+			return -1;
+		}
+	}
+	return 0;
+}
