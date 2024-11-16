@@ -1,13 +1,17 @@
 #!/bin/python
 from ctypes import *
 
+NAN_SHIFT = 0
+NAN_SIGNAL_SHIFT = 1
+INFINITY_SHIFT = 2
+
 class Decimal128(Structure):
     _fields_ = [("data", c_ubyte * 16)]
 
 class Dec128(Structure):
-    _fields = [("sign", c_ubyte),
+    _fields_ = [("sign", c_ubyte),
                ("flags", c_ubyte),
-               ("exponent", c_ushort),
+               ("exponent", c_short),
                ("digits", c_ubyte * 17)
                ]
 
