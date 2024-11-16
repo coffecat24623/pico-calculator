@@ -2,6 +2,11 @@ from defs import *
 import math
 import random
 
+class BCD:
+    def __init__(self, value: int, length: int):
+        pass
+
+
 def store_float128(num: float) -> Dec128:
     result = Dec128()
     if math.isnan(num):
@@ -20,7 +25,7 @@ def store_float128(num: float) -> Dec128:
         return result
 
     num = abs(num)
-    digits = f'{num:.20f}'
+    digits = f'{num:.50f}'
     full, partial = digits.split('.')
     exponent = -1 * len(partial)
 
