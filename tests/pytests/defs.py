@@ -11,7 +11,7 @@ class Dec128(Structure):
                ("digits", c_ubyte * 17)
                ]
 
-l = CDLL('./build/libtestutils.so')
+l = CDLL('../build/libtestutils.so')
 
 l.decode_dpd.argtypes = c_ushort, POINTER(c_ushort), POINTER(c_ushort), POINTER(c_ushort)
 l.decode_dpd.restype = c_int
