@@ -2,3 +2,4 @@ build
 .ccls-cache
 .ccls
 compile_commands.json
+__pycache__/
