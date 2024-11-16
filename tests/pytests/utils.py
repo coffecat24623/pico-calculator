@@ -1,7 +1,8 @@
 from defs import *
 import math
+import random
 
-def pack_float128(num: float) -> Dec128:
+def store_float128(num: float) -> Dec128:
     result = Dec128()
     if math.isnan(num):
         result.flags = 1 << NAN_SHIFT
@@ -19,7 +20,7 @@ def pack_float128(num: float) -> Dec128:
         return result
 
     num = abs(num)
-    digits = str(num)
+    digits = f'{num:.20f}'
     full, partial = digits.split('.')
     exponent = -1 * len(partial)
 
@@ -29,7 +30,7 @@ def pack_float128(num: float) -> Dec128:
         exponent -= shift
         significand = process + [0 for _ in range(shift)]
     if (len(process) >= 34):
-        shift = len(process - 34)
+        shift = len(process) - 34
         exponent += shift
         significand = process[:34]
     
@@ -40,7 +41,7 @@ def pack_float128(num: float) -> Dec128:
     result.exponent = exponent
     return result
 
-def unpack_float128(num: Dec128) -> float:
+def restore_float128(num: Dec128) -> float:
     flags = num.flags
     if (flags & (1 << NAN_SHIFT)):
         return float('nan')
