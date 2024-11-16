@@ -7,10 +7,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/../libcalc libcalc_lib)
 
+# Make a shared library so python tools can load and run unit tests
+add_library(testutils SHARED)
+target_link_libraries(testutils libcalc)
 
 add_executable(math_test
 	math_test.c
 )
 
-target_link_libraries(math_test libcalc)
+target_link_libraries(math_test testutils)
 
